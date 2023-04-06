@@ -59,14 +59,20 @@ export default {
 				body: params,
 			})
 				.then(res => {
-					return res.json();
+					if (res.ok) {
+						return res.json();
+					} else {
+						return res.text().then(v => {
+							throw new Error(v);
+						});
+					}
 				})
 				.then(data => {
 					alert(data.name + "님 등록이 완료되었습니다.");
 					this.cancel();
 				})
 				.catch(err => {
-					console.error(err);
+					alert(err.message);
 				});
 		},
 		cancel() {
