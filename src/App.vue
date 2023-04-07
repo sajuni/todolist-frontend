@@ -1,66 +1,128 @@
 <template>
 	<v-app>
-		<v-main>
-			<h1>사용자를 먼저 등록해 주세요.</h1>
-			<v-dialog v-model="dialog" width="500">
-				<template v-slot:activator="{ on, attrs }">
-					<v-btn color="red lighten-2" dark v-bind="attrs" v-on="on">
-						사용자등록
-					</v-btn>
-				</template>
+		<v-container>
+			<v-main>
+				<h1>사용자를 먼저 등록해 주세요.</h1>
+				<br />
+				<member-save @reload="getAllData"></member-save>
+				<br />
+				<br />
 
-				<v-card>
-					<v-card-title class="text-h5 grey lighten-2">
-						사용자를 등록해주세요
-					</v-card-title>
-					<v-text-field v-model="name" label="이름" clearable></v-text-field>
-					<v-divider></v-divider>
-
-					<v-card-actions>
-						<v-spacer></v-spacer>
-						<v-btn color="primary" text @click="save()"> 등록 </v-btn>
-						<v-btn color="primary" text @click="cancel()"> 취소 </v-btn>
-					</v-card-actions>
-				</v-card>
-			</v-dialog>
-		</v-main>
+				<todo-save
+					ref="todoSaveRef"
+					@reload="getAllData"
+					:select-id="selectMemberId"
+				></todo-save>
+				<v-row>
+					<v-col v-for="(item, index) in tableData" :key="index" cols="3">
+						<v-simple-table>
+							<thead>
+								<tr>
+									<th class="th_header">
+										{{ item.name }}
+										<v-btn class="ml-auto" @click="deleteMember(item.id)"
+											>삭제</v-btn
+										>
+									</th>
+								</tr>
+							</thead>
+							<tbody>
+								<tr v-for="i in 6" :key="i">
+									<td
+										v-if="item.todoList[i - 1]?.id"
+										@click="updateStatus(item.todoList[i - 1])"
+										:class="item.todoList[i - 1].status"
+									>
+										{{ item.todoList[i - 1].content }}
+									</td>
+									<td v-else-if="i === 6 && isAllCompleted(item.todoList)">
+										<v-btn color="error" @click="deleteTodoList(item.id)"
+											>clear</v-btn
+										>
+									</td>
+									<td v-else-if="i === 6"></td>
+									<td v-else @click="addTodoOpen(item.id)"></td>
+								</tr>
+							</tbody>
+						</v-simple-table>
+					</v-col>
+				</v-row>
+				<v-alert
+					v-model="showAlert"
+					type="error"
+					@dismiss="showAlert = false"
+					style="position: absolute; top: 60px; right: 0"
+					transition="scale-transition"
+				>
+					{{ message }}
+				</v-alert>
+			</v-main>
+		</v-container>
 	</v-app>
 </template>
 
 <script>
+import SaveMemberDialog from "@/components/SaveMemberDialog.vue";
+import SaveTodoDialog from "@/components/SaveTodoDialog.vue";
 export default {
+	components: {
+		"member-save": SaveMemberDialog,
+		"todo-save": SaveTodoDialog,
+	},
 	name: "App",
 	data() {
 		return {
-			dialog: false,
-			name: "",
+			selectMemberId: "",
+			tableData: [],
+			statusMap: {
+				CREATE: "IN_PROGRESS", // 생성됨
+				IN_PROGRESS: "COMPLETED", // 진행중
+				COMPLETED: "DELAY", // 완료됨
+				DELAY: "IN_PROGRESS", // 딜레이
+			},
+			showAlert: false,
+			message: "",
 		};
 	},
 	created() {
-		fetch("http://localhost:8080/api/member/12", {
-			method: "GET",
-		})
-			.then(res => {
-				console.log(res);
-			})
-			.catch(err => {
-				console.error(err);
-			});
+		this.getAllData();
+	},
+	computed: {
+		isAllCompleted() {
+			return todoList => {
+				if (todoList.length == 5) {
+					return todoList.every(todoItem => todoItem.status === "COMPLETED");
+				}
+			};
+		},
 	},
 	methods: {
-		save() {
-			const params = new URLSearchParams();
-			params.append("name", this.name);
-			fetch("http://localhost:8080/api/member/save", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/x-www-form-urlencoded",
-				},
-				body: params,
+		getAllData() {
+			fetch("http://localhost:8080/api/member", {
+				method: "GET",
 			})
 				.then(res => {
 					if (res.ok) {
 						return res.json();
+					}
+				})
+				.then(data => {
+					this.tableData = data;
+				})
+				.catch(err => {
+					console.error(err);
+				});
+		},
+		deleteMember(id) {
+			fetch(`http://localhost:8080/api/member/${id}`, {
+				method: "DELETE",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+			})
+				.then(res => {
+					if (res.ok) {
+						console.log(res);
 					} else {
 						return res.text().then(v => {
 							throw new Error(v);
@@ -68,17 +130,80 @@ export default {
 					}
 				})
 				.then(data => {
-					alert(data.name + "님 등록이 완료되었습니다.");
-					this.cancel();
+					this.message = `삭제가 완료 되었습니다.`;
+					this.showAlert = true;
+					setTimeout(() => {
+						this.showAlert = false;
+					}, 2000);
+					console.log(data);
+					this.getAllData();
 				})
 				.catch(err => {
 					alert(err.message);
 				});
 		},
-		cancel() {
-			this.dialog = false;
-			this.name = "";
+		updateStatus(id) {
+			const params = new URLSearchParams();
+			params.append("status", this.statusMap[id.status]);
+			fetch(`http://localhost:8080/api/todo/update/${id.id}`, {
+				method: "PATCH",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+				body: params,
+			})
+				.then(res => {
+					this.getAllData();
+					console.log(res);
+				})
+				.catch(err => {
+					console.log(err);
+				});
+		},
+		deleteTodoList(id) {
+			fetch(`http://localhost:8080/api/todo/${id}`, {
+				method: "DELETE",
+				headers: {
+					"Content-Type": "application/x-www-form-urlencoded",
+				},
+			})
+				.then(res => {
+					this.getAllData();
+					console.log(res);
+				})
+				.catch(err => {
+					console.log(err);
+				});
+		},
+		addTodoOpen(memberId) {
+			this.selectMemberId = memberId;
+			this.$refs.todoSaveRef.todoDialog = true;
 		},
 	},
 };
 </script>
+<style>
+table {
+	border: 1px solid lightgray;
+}
+.CREATE {
+	background-color: white;
+}
+
+.IN_PROGRESS {
+	background-color: #fec107;
+}
+
+.COMPLETED {
+	background-color: #4caf50;
+}
+
+.DELAY {
+	background-color: #fb9678;
+}
+
+.th_header {
+	display: flex;
+	align-items: center;
+}
+</style>
