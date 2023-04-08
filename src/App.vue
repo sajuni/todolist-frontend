@@ -2,7 +2,9 @@
 	<v-app>
 		<v-container>
 			<v-main>
-				<h1>사용자를 먼저 등록해 주세요.</h1>
+				<h1>사용법</h1>
+				<h3>사용자 등록 -> 테이블 컬럼 누를 시 내용 입력 -> 컬럼 클릭 시 상태변경(흰색: 일반, 녹색: 완료, 오렌지: 진행중, 핑크: 지연)</h3>
+				<h5>(컬럼 모두 완료 처리 시 클리어 생성)</h5>
 				<br />
 				<member-save @reload="getAllData"></member-save>
 				<br />
@@ -14,7 +16,7 @@
 					:select-id="selectMemberId"
 				></todo-save>
 				<v-row>
-					<v-col v-for="(item, index) in tableData" :key="index" cols="3">
+					<v-col v-for="(item, index) in tableData" :key="index" :cols="computedCols" >
 						<v-simple-table>
 							<thead>
 								<tr>
@@ -40,7 +42,9 @@
 											>clear</v-btn
 										>
 									</td>
-									<td v-else-if="i === 6"></td>
+									<td v-else-if="i === 6">
+										<v-btn depressed disabled>clear</v-btn>
+									</td>
 									<td v-else @click="addTodoOpen(item.id)"></td>
 								</tr>
 							</tbody>
@@ -88,9 +92,12 @@ export default {
 		this.getAllData();
 	},
 	computed: {
+		computedCols() {
+			return window.innerWidth >= 768 ? 3 : 12 / 2;
+		},
 		isAllCompleted() {
 			return todoList => {
-				if (todoList.length == 5) {
+				if (todoList.length > 0) {
 					return todoList.every(todoItem => todoItem.status === "COMPLETED");
 				}
 			};

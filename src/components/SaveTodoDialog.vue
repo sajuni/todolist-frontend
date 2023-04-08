@@ -58,6 +58,11 @@ export default {
 	},
 	methods: {
 		saveTodo() {
+			if(!this.content) {
+				alert('내용을 입력해 주세요')
+				return;
+			}
+
 			const params = new URLSearchParams();
 			params.append("memberId", this.selectId);
 			params.append("content", this.content);

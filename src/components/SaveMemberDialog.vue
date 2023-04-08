@@ -58,6 +58,11 @@ export default {
 	},
 	methods: {
 		saveMember() {
+			if(!this.name) {
+				alert('이름을 입력해 주세요')
+				return;
+			}
+
 			const params = new URLSearchParams();
 			params.append("name", this.name);
 			fetch("http://localhost:8080/api/member/save", {
